@@ -262,9 +262,9 @@ Enable debug logging by running:
 flutter run --debug
 ```
 
-## 📄 License
+<!-- ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. -->
 
 ## 🤝 Contributing
 
@@ -276,7 +276,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email your-email@example.com or create an issue in the repository.
+For support, email chandasudiptya@gmail.com or create an issue in the repository.
 
 ## 🔄 Version History
 
@@ -287,4 +287,4 @@ For support, email your-email@example.com or create an issue in the repository.
 
 ---
 
-**Made with ❤️ using Flutter**
+**Made with ❤️ using Flutter by Sudiptya Chanda**
