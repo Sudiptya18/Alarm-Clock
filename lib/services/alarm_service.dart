@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../models/alarm.dart';
+import '../main.dart';
 
 class AlarmService extends ChangeNotifier {
   static final AlarmService _instance = AlarmService._internal();
@@ -12,12 +13,14 @@ class AlarmService extends ChangeNotifier {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  
+
   List<Alarm> _alarms = [];
   List<Alarm> get alarms => List.unmodifiable(_alarms);
 
   Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(
       android: androidSettings,
@@ -29,18 +32,52 @@ class AlarmService extends ChangeNotifier {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
+    // Create notification channel for Android
+    await _createNotificationChannel();
+
     await _loadAlarms();
   }
 
+  Future<void> _createNotificationChannel() async {
+    const androidChannel = AndroidNotificationChannel(
+      'alarm_channel',
+      'Alarm Notifications',
+      description: 'Notifications for alarm clock',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Colors.red,
+    );
+
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidChannel);
+  }
+
   Future<void> _onNotificationTapped(NotificationResponse response) async {
-    // Handle notification tap - navigate to alarm ringing screen
-    // This will be implemented in the main app
+    if (response.payload != null) {
+      final payload = jsonDecode(response.payload!);
+      final alarmId = payload['alarmId'] as String;
+      final hasMathChallenge = payload['hasMathChallenge'] as bool;
+      
+      // Cancel the notification
+      await _notificationsPlugin.cancel(alarmId.hashCode);
+      
+      // Navigate to alarm ringing screen
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamed('/alarm_ringing');
+      }
+      
+      print('Alarm notification tapped: $alarmId, Math Challenge: $hasMathChallenge');
+    }
   }
 
   Future<void> _loadAlarms() async {
     final prefs = await SharedPreferences.getInstance();
     final alarmsJson = prefs.getStringList('alarms') ?? [];
-    
+
     _alarms = alarmsJson
         .map((json) => Alarm.fromJson(jsonDecode(json)))
         .toList();
@@ -51,7 +88,7 @@ class AlarmService extends ChangeNotifier {
     final alarmsJson = _alarms
         .map((alarm) => jsonEncode(alarm.toJson()))
         .toList();
-    
+
     await prefs.setStringList('alarms', alarmsJson);
   }
 
@@ -86,13 +123,13 @@ class AlarmService extends ChangeNotifier {
     if (index != -1) {
       final alarm = _alarms[index];
       final updatedAlarm = alarm.copyWith(isEnabled: !alarm.isEnabled);
-      
+
       if (alarm.isEnabled) {
         await _cancelAlarm(alarm);
       } else {
         await _scheduleAlarm(updatedAlarm);
       }
-      
+
       _alarms[index] = updatedAlarm;
       await _saveAlarms();
       notifyListeners();
@@ -163,12 +200,23 @@ class AlarmService extends ChangeNotifier {
       priority: Priority.high,
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Colors.red,
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      ongoing: true,
+      autoCancel: false,
+      showWhen: true,
+      ticker: 'Alarm is ringing!',
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'alarm.mp3',
     );
 
     const notificationDetails = NotificationDetails(
@@ -179,14 +227,12 @@ class AlarmService extends ChangeNotifier {
     await _notificationsPlugin.zonedSchedule(
       alarmId.hashCode,
       title,
-      hasMathChallenge 
-          ? 'Solve math problems to stop the alarm!' 
+      hasMathChallenge
+          ? 'Solve math problems to stop the alarm!'
           : 'Tap to stop the alarm',
       tz.TZDateTime.from(scheduledTime, tz.local),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       payload: jsonEncode({
         'alarmId': alarmId,
         'hasMathChallenge': hasMathChallenge,
@@ -208,5 +254,17 @@ class AlarmService extends ChangeNotifier {
     } catch (e) {
       return null;
     }
+  }
+
+  // Test method to schedule an alarm for testing (1 minute from now)
+  Future<void> scheduleTestAlarm() async {
+    final testTime = DateTime.now().add(const Duration(minutes: 1));
+    
+    await _scheduleNotification(
+      'test_alarm',
+      'Test Alarm',
+      testTime,
+      false,
+    );
   }
 }

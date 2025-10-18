@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/alarm.dart';
@@ -15,6 +16,28 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final AlarmService _alarmService = AlarmService();
   final ThemeService _themeService = ThemeService();
+  Timer? _timer;
+  DateTime _currentTime = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _currentTime = DateTime.now();
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,12 +49,30 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(_themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            icon: const Icon(Icons.notifications_active),
+            onPressed: () async {
+              await _alarmService.scheduleTestAlarm();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Test alarm scheduled for 1 minute from now'),
+                  ),
+                );
+              }
+            },
+            tooltip: 'Test Alarm',
+          ),
+          IconButton(
+            icon: Icon(
+              _themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+            ),
             onPressed: () async {
               await _themeService.toggleTheme();
               setState(() {});
             },
-            tooltip: _themeService.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            tooltip: _themeService.isDarkMode
+                ? 'Switch to Light Mode'
+                : 'Switch to Dark Mode',
           ),
         ],
       ),
@@ -43,15 +84,51 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
+                // App Logo
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/images/app_logo.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Icon(
+                            Icons.alarm,
+                            size: 40,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
-                  DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                  DateFormat('EEEE, MMMM d').format(_currentTime),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  DateFormat('HH:mm:ss').format(DateTime.now()),
+                  DateFormat('HH:mm:ss').format(_currentTime),
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 48,
@@ -60,14 +137,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          
+
           // Alarms list
           Expanded(
             child: AnimatedBuilder(
               animation: _alarmService,
               builder: (context, child) {
                 final alarms = _alarmService.alarms;
-                
+
                 if (alarms.isEmpty) {
                   return Center(
                     child: Column(
@@ -76,27 +153,35 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(
                           Icons.alarm_off,
                           size: 64,
-                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.color?.withOpacity(0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No alarms set',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                              ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Tap + to add your first alarm',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                              ),
                         ),
                       ],
                     ),
                   );
                 }
-                
+
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: alarms.length,
@@ -125,11 +210,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _addAlarm() async {
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const AddEditAlarmScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const AddEditAlarmScreen()),
     );
-    
+
     if (result == true) {
       setState(() {});
     }
@@ -138,11 +221,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _editAlarm(Alarm alarm) async {
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => AddEditAlarmScreen(alarm: alarm),
-      ),
+      MaterialPageRoute(builder: (context) => AddEditAlarmScreen(alarm: alarm)),
     );
-    
+
     if (result == true) {
       setState(() {});
     }
@@ -171,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-    
+
     if (confirmed == true) {
       await _alarmService.deleteAlarm(alarmId);
       setState(() {});
@@ -221,15 +302,22 @@ class AlarmCard extends StatelessWidget {
                   Text(
                     alarm.repeatDaysString,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.color?.withOpacity(0.7),
                     ),
                   ),
                   if (alarm.hasMathChallenge)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -243,13 +331,10 @@ class AlarmCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Toggle switch
-            Switch(
-              value: alarm.isEnabled,
-              onChanged: (_) => onToggle(),
-            ),
-            
+            Switch(value: alarm.isEnabled, onChanged: (_) => onToggle()),
+
             // Menu button
             PopupMenuButton<String>(
               onSelected: (value) {

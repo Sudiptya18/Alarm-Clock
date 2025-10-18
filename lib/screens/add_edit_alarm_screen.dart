@@ -333,30 +333,41 @@ class _AddEditAlarmScreenState extends State<AddEditAlarmScreen> {
   Future<void> _saveAlarm() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final alarm = alarm_model.Alarm(
-      id: widget.alarm?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleController.text.trim(),
-      time: alarm_model.TimeOfDay(
-        hour: _selectedTime.hour,
-        minute: _selectedTime.minute,
-      ),
-      repeatDays: _selectedDays,
-      isEnabled: true,
-      hasMathChallenge: _hasMathChallenge,
-      ringtonePath: _ringtonePath,
-      ringtoneStartTime: _ringtoneStartTime,
-      isVibrateEnabled: _isVibrateEnabled,
-      volume: _volume,
-    );
+    try {
+      final alarm = alarm_model.Alarm(
+        id: widget.alarm?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        title: _titleController.text.trim(),
+        time: alarm_model.TimeOfDay(
+          hour: _selectedTime.hour,
+          minute: _selectedTime.minute,
+        ),
+        repeatDays: _selectedDays,
+        isEnabled: true,
+        hasMathChallenge: _hasMathChallenge,
+        ringtonePath: _ringtonePath,
+        ringtoneStartTime: _ringtoneStartTime,
+        isVibrateEnabled: _isVibrateEnabled,
+        volume: _volume,
+      );
 
-    if (widget.alarm == null) {
-      await _alarmService.addAlarm(alarm);
-    } else {
-      await _alarmService.updateAlarm(alarm);
-    }
+      if (widget.alarm == null) {
+        await _alarmService.addAlarm(alarm);
+      } else {
+        await _alarmService.updateAlarm(alarm);
+      }
 
-    if (mounted) {
-      Navigator.pop(context, true);
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving alarm: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
